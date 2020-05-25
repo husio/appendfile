@@ -30,3 +30,7 @@ jobs:
       run: go test -v -race ./...
       timeout-minutes: 2
 
+    - name: Run benchmarks
+      run: go test ./... -benchmem -bench=.
+      timeout-minutes: 8
+
