@@ -11,7 +11,7 @@ import (
 
 var payload = []byte("1234567890poiuytrewqasdfjkl,mnbvcxz")
 
-func BenchmarkAppendNoSync(b *testing.B) {
+func BenchmarkNoSync(b *testing.B) {
 	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		b.Fatal(err)
@@ -26,7 +26,7 @@ func BenchmarkAppendNoSync(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkAppendSync(b *testing.B) {
+func BenchmarkAndSync(b *testing.B) {
 	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		b.Fatal(err)
@@ -44,7 +44,23 @@ func BenchmarkAppendSync(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkAppendDsync(b *testing.B) {
+func BenchmarkOpenSync(b *testing.B) {
+	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY|unix.O_SYNC, 0644)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := fd.Write(payload); err != nil {
+			b.Fatalf("write: %s", err)
+		}
+		// O_SYNC does not require explicit sync call.
+	}
+	b.StopTimer()
+}
+
+func BenchmarkOpenDsync(b *testing.B) {
 	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY|unix.O_DSYNC, 0644)
 	if err != nil {
 		b.Fatal(err)
@@ -60,10 +76,34 @@ func BenchmarkAppendDsync(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkAppendFdatasyncDsync(b *testing.B) {
+func BenchmarkFallocateOpenSync(b *testing.B) {
+	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY|unix.O_SYNC, 0644)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	if err := unix.Fallocate(int(fd.Fd()), 0, 0, 1e7); err != nil {
+		b.Fatalf("fallocate: %s", err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := fd.Write(payload); err != nil {
+			b.Fatalf("write: %s", err)
+		}
+		// O_SYNC does not require explicit sync call.
+	}
+	b.StopTimer()
+}
+
+func BenchmarkFallocateOpenDsync(b *testing.B) {
 	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY|unix.O_DSYNC, 0644)
 	if err != nil {
 		b.Fatal(err)
+	}
+
+	if err := unix.Fallocate(int(fd.Fd()), 0, 0, 1e7); err != nil {
+		b.Fatalf("fallocate: %s", err)
 	}
 
 	b.ResetTimer()
@@ -76,7 +116,7 @@ func BenchmarkAppendFdatasyncDsync(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkAppendFdatasync(b *testing.B) {
+func BenchmarkFdatasync(b *testing.B) {
 	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		b.Fatal(err)
@@ -95,7 +135,7 @@ func BenchmarkAppendFdatasync(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkAppendFdatasyncAndFallocateDefaultMode(b *testing.B) {
+func BenchmarkFdatasyncAndFallocateDefaultMode(b *testing.B) {
 	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		b.Fatal(err)
@@ -118,7 +158,7 @@ func BenchmarkAppendFdatasyncAndFallocateDefaultMode(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkAppendFdatasyncAndFallocateZero(b *testing.B) {
+func BenchmarkFdatasyncAndFallocateZero(b *testing.B) {
 	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		b.Fatal(err)
