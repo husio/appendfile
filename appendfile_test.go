@@ -80,6 +80,25 @@ func BenchmarkAppendFdatasync(b *testing.B) {
 	b.StopTimer()
 }
 
+func BenchmarkAppendFdatasyncNoCache(b *testing.B) {
+	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY|unix.O_DIRECT, 0644)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := fd.Write([]byte("1234567890qwertyuiop")); err != nil {
+			b.Fatalf("write: %s", err)
+		}
+
+		if err := unix.Fdatasync(int(fd.Fd())); err != nil {
+			b.Fatalf("fdatasync: %s", err)
+		}
+	}
+	b.StopTimer()
+}
+
 func BenchmarkAppendFdatasyncAndFallocateDefaultMode(b *testing.B) {
 	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
