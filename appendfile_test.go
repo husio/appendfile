@@ -3,9 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
-	"syscall"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 func BenchmarkAppendNoSync(b *testing.B) {
@@ -53,20 +54,20 @@ func BenchmarkAppendFdatasync(b *testing.B) {
 			b.Fatalf("write: %s", err)
 		}
 
-		if err := syscall.Fdatasync(int(fd.Fd())); err != nil {
+		if err := unix.Fdatasync(int(fd.Fd())); err != nil {
 			b.Fatalf("fdatasync: %s", err)
 		}
 	}
 	b.StopTimer()
 }
 
-func BenchmarkAppendFdatasyncAndFallocate(b *testing.B) {
+func BenchmarkAppendFdatasyncAndFallocateDefaultMode(b *testing.B) {
 	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	if err := syscall.Fallocate(int(fd.Fd()), 0, 0, 1e7); err != nil {
+	if err := unix.Fallocate(int(fd.Fd()), 0, 0, 1e7); err != nil {
 		b.Fatalf("fallocate: %s", err)
 	}
 
@@ -76,7 +77,30 @@ func BenchmarkAppendFdatasyncAndFallocate(b *testing.B) {
 			b.Fatalf("write: %s", err)
 		}
 
-		if err := syscall.Fdatasync(int(fd.Fd())); err != nil {
+		if err := unix.Fdatasync(int(fd.Fd())); err != nil {
+			b.Fatalf("fdatasync: %s", err)
+		}
+	}
+	b.StopTimer()
+}
+
+func BenchmarkAppendFdatasyncAndFallocateZero(b *testing.B) {
+	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	if err := unix.Fallocate(int(fd.Fd()), unix.FALLOC_FL_ZERO_RANGE|unix.FALLOC_FL_KEEP_SIZE, 0, 1e7); err != nil {
+		b.Fatalf("fallocate: %s", err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := fd.Write([]byte("1234567890qwertyuiop")); err != nil {
+			b.Fatalf("write: %s", err)
+		}
+
+		if err := unix.Fdatasync(int(fd.Fd())); err != nil {
 			b.Fatalf("fdatasync: %s", err)
 		}
 	}
