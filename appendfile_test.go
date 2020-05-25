@@ -9,6 +9,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var payload = []byte("1234567890poiuytrewqasdfjkl,mnbvcxz")
+
 func BenchmarkAppendNoSync(b *testing.B) {
 	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -17,7 +19,7 @@ func BenchmarkAppendNoSync(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := fd.Write([]byte("1234567890qwertyuiop")); err != nil {
+		if _, err := fd.Write(payload); err != nil {
 			b.Fatalf("write: %s", err)
 		}
 	}
@@ -32,7 +34,7 @@ func BenchmarkAppendSync(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := fd.Write([]byte("1234567890qwertyuiop")); err != nil {
+		if _, err := fd.Write(payload); err != nil {
 			b.Fatalf("write: %s", err)
 		}
 		if err := fd.Sync(); err != nil {
@@ -42,7 +44,7 @@ func BenchmarkAppendSync(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkAppendFdatasyncOpenDsync(b *testing.B) {
+func BenchmarkAppendDsync(b *testing.B) {
 	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY|unix.O_DSYNC, 0644)
 	if err != nil {
 		b.Fatal(err)
@@ -50,13 +52,26 @@ func BenchmarkAppendFdatasyncOpenDsync(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := fd.Write([]byte("1234567890qwertyuiop")); err != nil {
+		if _, err := fd.Write(payload); err != nil {
 			b.Fatalf("write: %s", err)
 		}
+		// O_DSYNC does not require explicit sync call.
+	}
+	b.StopTimer()
+}
 
-		if err := unix.Fdatasync(int(fd.Fd())); err != nil {
-			b.Fatalf("fdatasync: %s", err)
+func BenchmarkAppendFdatasyncDsync(b *testing.B) {
+	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY|unix.O_DSYNC, 0644)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := fd.Write(payload); err != nil {
+			b.Fatalf("write: %s", err)
 		}
+		// O_DSYNC does not require explicit sync call.
 	}
 	b.StopTimer()
 }
@@ -69,26 +84,7 @@ func BenchmarkAppendFdatasync(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := fd.Write([]byte("1234567890qwertyuiop")); err != nil {
-			b.Fatalf("write: %s", err)
-		}
-
-		if err := unix.Fdatasync(int(fd.Fd())); err != nil {
-			b.Fatalf("fdatasync: %s", err)
-		}
-	}
-	b.StopTimer()
-}
-
-func BenchmarkAppendFdatasyncNoCache(b *testing.B) {
-	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY|unix.O_DIRECT, 0644)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if _, err := fd.Write([]byte("1234567890qwertyuiop")); err != nil {
+		if _, err := fd.Write(payload); err != nil {
 			b.Fatalf("write: %s", err)
 		}
 
@@ -111,30 +107,7 @@ func BenchmarkAppendFdatasyncAndFallocateDefaultMode(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := fd.Write([]byte("1234567890qwertyuiop")); err != nil {
-			b.Fatalf("write: %s", err)
-		}
-
-		if err := unix.Fdatasync(int(fd.Fd())); err != nil {
-			b.Fatalf("fdatasync: %s", err)
-		}
-	}
-	b.StopTimer()
-}
-
-func BenchmarkAppendFdatasyncAndFallocateDefaultModeOpenDsync(b *testing.B) {
-	fd, err := os.OpenFile(tempfile(b), os.O_CREATE|os.O_WRONLY|unix.O_DSYNC, 0644)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	if err := unix.Fallocate(int(fd.Fd()), 0, 0, 1e7); err != nil {
-		b.Fatalf("fallocate: %s", err)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if _, err := fd.Write([]byte("1234567890qwertyuiop")); err != nil {
+		if _, err := fd.Write(payload); err != nil {
 			b.Fatalf("write: %s", err)
 		}
 
@@ -157,7 +130,7 @@ func BenchmarkAppendFdatasyncAndFallocateZero(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := fd.Write([]byte("1234567890qwertyuiop")); err != nil {
+		if _, err := fd.Write(payload); err != nil {
 			b.Fatalf("write: %s", err)
 		}
 
