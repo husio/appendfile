@@ -1,0 +1,32 @@
+name: Test
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+jobs:
+  build:
+    name: Go tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.14
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v1
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Run go vet
+      run: go vet -c=1 ./...
+      timeout-minutes: 1
+
+    - name: Run tests
+      run: go test -v -race ./...
+      timeout-minutes: 2
+
